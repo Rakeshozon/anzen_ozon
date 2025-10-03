@@ -64,3 +64,4 @@ if (digitalRead(TRIGGER_PIN) == HIGH) {
 
   delay(5000); // every 5 sec
 }
+
