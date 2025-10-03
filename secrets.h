@@ -4,8 +4,8 @@
 
 */
 // secrets.h
-#define WIFI_SSID "Airtel_rake_7744"
-#define WIFI_PASSWORD "air97969"
+#define WIFI_SSID "wifi_name"
+#define WIFI_PASSWORD "password"
 
 
 
@@ -49,8 +49,9 @@
 */
 
 /* Test Mode (No Authentication) */
-#define REFERENCE_URL "https://anzenozon-default-rtdb.firebaseio.com/"
-#define AUTH_TOKEN "vWWt197ntY4J3UbybIEKAWZuP0gOSaj8kaFbPxe2"  // Optional if using locked mode
+#define REFERENCE_URL "firebase_url"
+#define AUTH_TOKEN "database_secrets_or_auth_token"  // Optional if using locked mode
 
 /* Uncomment the following line for Locked Mode (With Authentication) */
 // #define AUTH_TOKEN "YOUR-AUTHENTICATION-CODE"
+
