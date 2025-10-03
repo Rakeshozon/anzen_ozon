@@ -1,6 +1,4 @@
-Got it! We’ll adjust the README and **data flow** to use **ESP8266** instead of ESP32. I’ll also adjust code snippets and descriptions to reflect ESP8266 capabilities. Here’s the updated version:
 
----
 
 # Anzen Ozon
 
@@ -267,8 +265,4 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ---
 
-✅ This version is fully ESP8266-compatible.
 
-If you want, I can **create a visual diagram PNG for this ESP8266 → Firebase → App flow** and embed it in the README to make it look professional.
-
-Do you want me to create that diagram?
