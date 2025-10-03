@@ -1,268 +1,284 @@
+# Anzen Ozon — Women’s Safety (Pepper‑Spray Trigger) — **Alert‑Only ESP8266 Mode**
 
+**NOTE:** This repo implements a women’s‑safety alert system where a mechanical trigger on a pepper‑spray canister notifies an app. The **ESP8266 device only sends a lightweight alert event** (no GPS/GSM). The **mobile app obtains the live GPS location** from the phone when it receives the alert and is responsible for notifying emergency contacts.
 
-# Anzen Ozon
-
-**Anzen Ozon** is a multi-platform system designed for **real-time ozone monitoring and control**, integrating **Flutter mobile and desktop applications** with **ESP8266-based IoT devices**. It allows users to **monitor ozone levels**, **trigger alerts**, and **log environmental data** for analysis.
-
-This project combines **mobile, desktop, and IoT technologies**, making it an end-to-end solution for ozone level management in homes, offices, or industrial environments.
+> ⚠️ Legal & safety reminder: make sure your device use and modifications comply with local law. Do not use this system to harm anyone. The repository documents an alert system only — the author (you) is responsible for safe, legal deployment.
 
 ---
 
-## Table of Contents
+## Table of contents
 
-* [Features](#features)
-* [Project Structure](#project-structure)
-* [Requirements](#requirements)
-* [Installation](#installation)
-* [ESP8266 Firmware Setup](#esp8266-firmware-setup)
-* [Usage](#usage)
-* [Firebase & Data Flow](#firebase--data-flow)
-* [Testing](#testing)
-* [Screenshots](#screenshots)
+* [Project overview](#project-overview)
+* [What changed — design decision](#what-changed---design-decision)
+* [How it works (high level)](#how-it-works-high-level)
+* [Hardware & wiring (ESP8266 only)](#hardware--wiring-esp8266-only)
+* [ESP8266 firmware (alert-only example)](#esp8266-firmware-alert-only-example)
+* [Firebase data model & recommended rules](#firebase-data-model--recommended-rules)
+* [Flutter app behavior (required)](#flutter-app-behavior-required)
+* [Security, privacy & best practices](#security-privacy--best-practices)
+* [Testing & deployment checklist](#testing--deployment-checklist)
 * [Contributing](#contributing)
 * [License](#license)
 
 ---
 
-## Features
+## Project overview
 
-* **Cross-Platform Flutter App**
+This system converts a pepper‑spray mechanical trigger into an emergency alert sender. When the user presses the spray (activates the trigger), a momentary switch changes state. The ESP8266 detects this and pushes a compact alert event to Firebase Realtime Database (or Firestore). The mobile app (signed in and paired with the device) listens for that alert; once it detects an alert it:
 
-  * Supports **Android**, **iOS**, **Windows**, **macOS**, and **Linux**
-  * Unified UI across platforms
-* **Real-Time Monitoring**
+1. Immediately obtains the phone’s **live GPS location** (with user permission),
+2. Sends that location + timestamp + device metadata to emergency contacts (via SMS/push/call), and
+3. Updates Firebase with the resolved state or any additional info.
 
-  * Connects to **ESP8266 sensors** for ozone level detection
-  * Data updates live in the app
-* **Alerts and Notifications**
-
-  * Push notifications for high ozone levels
-  * Optional SMS integration for urgent alerts
-* **Data Logging**
-
-  * Logs ozone levels locally and/or in a cloud database
-  * Supports exporting logs for analysis
-* **IoT Integration**
-
-  * ESP8266 firmware handles **sensor readings**, **data transmission**, and **actuator control**
-* **Testing Framework**
-
-  * Flutter unit and widget tests included
+This approach keeps the embedded device simple, cheap, and low‑power while leveraging the smartphone for accurate location and contact actions.
 
 ---
 
-## Project Structure
+## What changed — design decision
+
+* **No GPS or GSM on ESP8266.** The device only reports a trigger event.
+* **App-centric location & notifications.** The app must have location permissions and the ability to send SMS/push/call (or use server-side SMS).
+* **Benefits:** cheaper hardware, lower power, simpler firmware, and accurate location (phone GPS).
+* **Tradeoffs:** requires paired smartphone to be nearby and connected to the internet (or have mobile data).
+
+---
+
+## How it works (high level)
 
 ```text
-anzen_ozon/
-├── android/           # Android app source code
-├── ios/               # iOS app source code
-├── lib/               # Shared Flutter code
-├── linux/             # Linux desktop app source code
-├── macos/             # macOS desktop app source code
-├── windows/           # Windows desktop app source code
-├── assets/
-│   └── images/        # App images and icons
-├── test/              # Unit and widget tests
-├── Esp_code_for_anzen.ino  # ESP8266 Arduino code for sensors and IoT integration
-└── README.md          # Project documentation
+[ Pepper Spray Trigger ] --switch--> [ESP8266] --Wi‑Fi--> [Firebase Realtime DB: /alerts (push event) ]
+                                                               |
+                                                               v
+                                              [ Flutter App (mobile) listening to /alerts ) ]
+                                                               |
+                       App reads phone GPS (FINE_LOCATION) & sends SMS/push/call to emergency contacts
 ```
 
 ---
 
-## Requirements
+## Hardware & wiring (ESP8266 only)
 
-### Software
+### Components
 
-* **Flutter** (>=3.0)
-* **Dart SDK**
-* **Arduino IDE** (for ESP8266 firmware upload)
-* Platform-specific dependencies for Windows/macOS/Linux builds
+* ESP8266 board (NodeMCU / Wemos D1 mini)
+* Momentary push switch / micro‑switch (mounted so pressing spray toggles it)
+* Small LiPo battery + charger (TP4056) or regulated 5V → 3.3V supply
+* Wires, adhesive, enclosure
 
-### Hardware
+### Wiring (concept)
 
-* **ESP8266 microcontroller**
-* **Ozone sensor module**
-* Optional: GSM module for SMS alerts
+```
+Push switch:
+  One leg -> GND
+  Other leg -> D1 (GPIO5)  (use INPUT_PULLUP in firmware)
+Power:
+  ESP8266 Vcc -> 3.3V
+  GND -> common ground
+```
+
+> Tip: Use a small resistor if needed for debouncing, or handle debounce in software.
 
 ---
 
-## Installation
+## ESP8266 firmware (alert-only example)
 
-### 1. Clone the Repository
+Save as `Esp_code_for_anzen.ino`. This code:
 
-```bash
-git clone https://github.com/Rakeshozon/anzen_ozon.git
-cd anzen_ozon
-```
-
-### 2. Install Dependencies
-
-```bash
-flutter pub get
-```
-
-### 3. Run Flutter App
-
-* **Mobile (Android/iOS):**
-
-```bash
-flutter run
-```
-
-* **Desktop (Windows/macOS/Linux):**
-
-```bash
-flutter run -d windows   # or macos/linux
-```
-
----
-
-## ESP8266 Firmware Setup
-
-1. Open `Esp_code_for_anzen.ino` in the **Arduino IDE**
-2. Install the **ESP8266 board package** via Tools → Board → Boards Manager
-3. Configure **Wi-Fi credentials**, **Firebase URL**, and **sensor pins**
-4. Select **ESP8266 board** under Tools → Board → NodeMCU/Generic ESP8266
-5. Upload the code to the ESP8266
+* watches a trigger pin,
+* debounces it,
+* pushes a tiny alert object to Firebase (deviceId + ts + short state),
+* avoids storing secrets in repository (show placeholders).
 
 ```cpp
+// Esp_code_for_anzen.ino
 #include <ESP8266WiFi.h>
 #include <FirebaseESP8266.h>
 
-// Wi-Fi credentials
+// ---------- CONFIG ----------
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
 
-// Firebase credentials
 #define FIREBASE_HOST "YOUR_FIREBASE_PROJECT.firebaseio.com"
-#define FIREBASE_AUTH "YOUR_FIREBASE_DATABASE_SECRET"
+#define FIREBASE_AUTH "YOUR_FIREBASE_DATABASE_SECRET" // use secure rules in prod
 
-FirebaseData firebaseData;
+const uint8_t TRIGGER_PIN = D1; // GPIO5, switch to GND
+const unsigned long DEBOUNCE_MS = 600; // prevent multiple triggers per spray
+const char* DEVICE_ID = "nodeMCU-01";
+
+// ---------- GLOBALS ----------
+FirebaseData fbdo;
+unsigned long lastTrigger = 0;
 
 void setup() {
   Serial.begin(115200);
+  pinMode(TRIGGER_PIN, INPUT_PULLUP); // active LOW
   WiFi.begin(ssid, password);
-
+  Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+    delay(300);
+    Serial.print('.');
   }
-  Serial.println("\nConnected to WiFi");
+  Serial.println("\nWiFi connected.");
 
   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
   Firebase.reconnectWiFi(true);
 }
 
-void loop() {
-  float ozoneLevel = analogRead(A0) * (5.0 / 1023.0); // Example reading
+void pushAlertToFirebase() {
+  String path = "/alerts"; // firebase path where app listens
+  String json = "{";
+    json += "\"deviceId\":\"" + String(DEVICE_ID) + "\",";
+    json += "\"ts\":" + String(millis()) + ",";
+    json += "\"trigger\":true";
+  json += "}";
 
-  if (Firebase.setFloat(firebaseData, "/sensor/ozone", ozoneLevel)) {
-    Serial.println("Ozone level uploaded successfully");
+  if (Firebase.pushJSON(fbdo, path, json)) {
+    Serial.println("Alert pushed.");
   } else {
-    Serial.println("Firebase upload failed");
+    Serial.println("Push failed: " + fbdo.errorReason());
   }
+}
 
-  delay(5000); // Send data every 5 seconds
+void loop() {
+  // active LOW: pressed -> LOW
+  if (digitalRead(TRIGGER_PIN) == LOW) {
+    unsigned long now = millis();
+    if (now - lastTrigger > DEBOUNCE_MS) {
+      lastTrigger = now;
+      Serial.println("Trigger detected! Sending alert...");
+      pushAlertToFirebase();
+
+      // blink onboard LED / indicator here if desired
+    }
+  }
+  delay(50);
 }
 ```
 
----
+**Important**
 
-## Usage
-
-* Open the **Anzen Ozon app** on your preferred platform
-* Connect the app to your **ESP8266 device**
-* Monitor ozone levels in **real-time**
-* Set **alert thresholds** for notifications
-* Export or analyze logged data if needed
+* Replace `FIREBASE_AUTH` with secure server-side tokens or switch to Firebase Authentication + rules for production.
+* Store secrets out of the repo (use OTA provisioning, config file excluded from git, or cloud provisioning).
 
 ---
 
-## Firebase & Data Flow
+## Firebase data model & recommended rules
 
-The system integrates **ESP8266 sensors**, **Firebase Realtime Database**, and **Flutter app** to ensure real-time monitoring.
+### Example Realtime Database structure
 
-### Data Flow Overview
-
-```text
-+-----------------+        Wi-Fi        +-------------------------+
-| ESP8266 Micro-  | --------------->   | Firebase Realtime DB    |
-| controller +    |                     | (Stores sensor data)   |
-| Ozone Sensor    |                     +-------------------------+
-+-----------------+
-          |
-          | Bluetooth/Wi-Fi (optional)
-          v
-+-----------------+
-| Flutter App     |
-| (Mobile/Desktop)|
-| - Reads Firebase|
-| - Displays Data |
-| - Sends Alerts  |
-+-----------------+
+```
+/alerts/
+  - <pushId1>:
+      deviceId: "nodeMCU-01"
+      ts: 169xxx...           # millis or server timestamp
+      trigger: true
+      processed: false        # set true by app/cloud after contacts notified
+      location: {             # optional: appended by the app
+         lat: 12.97,
+         lng: 77.59,
+         provider: "phone_gps",
+         ts: 169xxx...
+      }
 ```
 
-### Step-by-Step Flow
+### Recommended flow
 
-1. **ESP8266 reads ozone levels** from the sensor at regular intervals
-2. **ESP8266 sends data** to Firebase Realtime Database over Wi-Fi
-3. **Flutter app listens** to Firebase for updates in real-time
-4. **App displays data** via dashboards, graphs, and notifications
-5. **Optional alert triggers** (SMS or push notifications) are fired if thresholds are crossed
+1. ESP8266 `push` creates a new child under `/alerts`.
+2. App listens for new children (or queries for `deviceId`) and, on receiving one, immediately:
 
----
+   * Acquire phone GPS (FINE_LOCATION).
+   * Update the alert node with `location` and `processedBy` info.
+   * Send SMS/push/call to emergency contacts (directly from phone or via server).
+   * Mark `processed: true` when done.
+3. Optionally, a Cloud Function can be used to forward to Twilio or other services — keep secrets server-side.
 
-## Testing
+### Recommended Firebase Rules (high level)
 
-* **Unit Tests:** Located in `test/` folder
-* Run tests using:
-
-```bash
-flutter test
-```
-
-* Tests cover **sensor data parsing**, **UI widgets**, and **alert triggers**
+* Only authenticated users may read alerts for their `userId` or devices they are authorized to see.
+* ESP device writes must be restricted to authenticated/whitelisted sources or validated by Cloud Function.
+* Prevent public read/write on `/alerts` in production.
 
 ---
 
-## Screenshots
+## Flutter app behavior (required)
 
-*Add screenshots of the app and sensor dashboard here.*
+The mobile app is the critical component here. It must:
 
-```text
-- assets/images/dashboard.png
-- assets/images/alert.png
-- assets/images/device_connect.png
-```
+### Permissions & setup
+
+* Request and hold **foreground location permission** (FINE/GPS) — and optionally background if you want to get location when app is backgrounded. **Explain to the user why location is needed.**
+* Request notification permission for push notifications.
+* Store and manage `deviceId` ↔ `userId` pairing during device setup.
+
+### Listener & immediate actions on alert
+
+1. **Realtime listener:** App listens to `/alerts` (filter by `deviceId` or `userId`) for `trigger: true` children.
+2. **On alert received:**
+
+   * Immediately get the **current GPS location** from the phone (use best available — GPS preferred).
+   * Update the same alert node with:
+
+     ```json
+     "location": { "lat": ..., "lng": ..., "provider": "phone_gps", "ts": 169... },
+     "processedBy": "<userId>",
+     "processedTs": 169...
+     ```
+   * Send notification/sms/call to emergency contacts. Options:
+
+     * **Direct SMS from phone** using platform channel (Android `SmsManager`) or iOS alternatives (note: iOS limits programmatic SMS sending — you may open a prefilled SMS Composer and require user confirmation).
+     * **Push + Call:** Use intent to open dialer with contact number prefilled.
+     * **Server-side SMS:** App calls a secure Cloud Function endpoint which sends SMS via Twilio (recommended for reliability and for iOS limitations).
+3. **UI:** Show full-screen alert screen (siren sound, big STOP button to cancel and mark `resolved`) and a map centered on the phone location with a share button.
+
+### Fault handling
+
+* If phone cannot get a GPS fix quickly, send best-effort coarse location and update when a better fix is available.
+* Allow user to cancel false alerts (will update `resolved: true` and optionally write a `cancelledBy` field).
+* Implement retry logic for write/update failures.
+
+---
+
+## Security, privacy & best practices
+
+* **Do not commit secrets.** Keep `FIREBASE_AUTH` and other keys out of repo. Use environment variables, encrypted config, or Firebase Auth + Cloud Functions.
+* **User consent & transparency.** Clearly show why location is collected and how it's used. Keep a privacy policy.
+* **Minimize stored data.** Remove alerts older than a TTL (e.g., 30 days) or move them to an archive with restricted access.
+* **Authentication & rules.** Use Firebase Authentication and strict database rules so only authorized users/devices can read/write their alerts.
+* **Rate limiting & debouncing.** On device and app level to prevent spam/accidental multiple alerts.
+* **Tamper‑detection.** Add a deviceId and verify device ownership in app pairing flow.
+
+---
+
+## Testing & deployment checklist
+
+* [ ] Replace placeholder Wi‑Fi and Firebase credentials with test credentials (not production secrets).
+* [ ] Test trigger push while app is foreground, background, and killed (note behavior differs by OS).
+* [ ] Test location acquisition timeouts — ensure app updates location when it becomes available.
+* [ ] Verify SMS/push behavior on both Android and iOS (iOS restrictions apply).
+* [ ] Validate Firebase Rules with security analyzer and manual tests.
+* [ ] Test false-positive cancellation flow.
+* [ ] Provide user manual for physical mounting and safe use.
 
 ---
 
 ## Contributing
 
-Contributions are welcome!
+1. Fork the repository.
+2. Create a branch: `git checkout -b feat/your-feature`.
+3. Implement changes and add tests.
+4. Open a Pull Request with description and testing steps.
 
-1. Fork the repository
-2. Create a feature branch:
-
-```bash
-git checkout -b feature-name
-```
-
-3. Commit your changes:
-
-```bash
-git commit -m "Add feature description"
-```
-
-4. Push and create a Pull Request
+For changes involving auth or cloud functions, include a brief security review in the PR.
 
 ---
 
 ## License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+MIT. See `LICENSE` file.
 
 ---
 
 
+
+
+Which of the two would you like next?
