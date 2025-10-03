@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "269818825727",
+    "firebase_url": "https://anzenozon-default-rtdb.firebaseio.com",
+    "project_id": "anzenozon",
+    "storage_bucket": "anzenozon.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:269818825727:android:b4fe1ff5966b8814e575ca",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzUdm9RPAv_W5Br5j0VKhsLj564uTMmkw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
