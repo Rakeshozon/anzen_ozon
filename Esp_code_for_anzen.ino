@@ -2,12 +2,12 @@
 #include <FirebaseESP8266.h>
 #define TRIGGER_PIN D8  
 // WiFi credentials
-#define WIFI_SSID "Airtel_rake_7744"
-#define WIFI_PASSWORD "air97969"
+#define WIFI_SSID "Wifi_name"
+#define WIFI_PASSWORD Wifi_password""
 
 // Firebase credentials
-#define FIREBASE_HOST "anzenozon-default-rtdb.firebaseio.com"
-#define FIREBASE_AUTH "vWWt197ntY4J3UbybIEKAWZuP0gOSaj8kaFbPxe2"
+#define FIREBASE_HOST "firebase_url"
+#define FIREBASE_AUTH "database_secret_key"
 
 // Define Firebase objects
 FirebaseData fbdo;
@@ -64,4 +64,5 @@ if (digitalRead(TRIGGER_PIN) == HIGH) {
 
   delay(5000); // every 5 sec
 }
+
 
